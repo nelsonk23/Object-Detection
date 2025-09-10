@@ -1,0 +1,284 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.datasets import fetch_covtype
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, classification_report
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+data = fetch_covtype()
+X = data.data
+y = data.target - 1  
+X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=0.2, stratify=y_train_val, random_state=42)
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.transform(X_val)
+X_test = scaler.transform(X_test)
+y_train_cat = to_categorical(y_train, num_classes=7)
+y_val_cat = to_categorical(y_val, num_classes=7)
+y_test_cat = to_categorical(y_test, num_classes=7)
+
+plt.figure(figsize=(10, 4))
+sns.countplot(x=y, palette="viridis")
+plt.title("Class Distribution", fontsize=20)
+plt.xlabel("Forest Cover Type (0 to 6)", fontsize=18)
+plt.ylabel("Count", fontsize=18)
+plt.xticks(fontsize=14,rotation=45)
+plt.yticks(fontsize=14,rotation=45)
+plt.show()
+plt.tight_layout()
+
+model = Sequential([
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(7, activation='softmax')  
+])
+
+model.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+history = model.fit(
+    X_train, y_train_cat,
+    validation_data=(X_val, y_val_cat),
+    epochs=20,
+    batch_size=64,
+    verbose=2
+)
+
+def plot_history(history, title='Model'):
+    plt.figure(figsize=(14, 5))
+    acc_key = 'accuracy' if 'accuracy' in history.history else 'acc'
+    val_acc_key = 'val_accuracy' if 'val_accuracy' in history.history else 'val_acc'
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history[acc_key], label='Train Accuracy')
+    plt.plot(history.history[val_acc_key], label='Validation Accuracy')
+    plt.title(f'{title} Accuracy', fontsize=20)
+    plt.xlabel('Epoch', fontsize=18)
+    plt.ylabel('Accuracy', fontsize=18)
+    plt.legend()
+    plt.xticks(fontsize=14,rotation=45)
+    plt.yticks(fontsize=14,rotation=45)
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title(f'{title} Loss', fontsize=20)
+    plt.xlabel('Epoch', fontsize=18)
+    plt.ylabel('Loss', fontsize=18)
+    plt.legend()
+    plt.xticks(fontsize=14,rotation=45)
+    plt.yticks(fontsize=14,rotation=45)
+    plt.show()
+    plt.tight_layout()
+plot_history(history, title='Baseline Model')
+
+val_acc_key = 'val_accuracy' if 'val_accuracy' in history.history else 'val_acc'
+val_acc_baseline = history.history[val_acc_key][-1]
+print(f"Baseline Model Final Validation Accuracy: {val_acc_baseline * 100:.2f}%")
+
+experiment_1 = Sequential([
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(64, activation='relu'),  
+    Dense(7, activation='softmax')
+])
+experiment_1.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+history_experiment_1 = experiment_1.fit(
+    X_train, y_train_cat,
+    validation_data=(X_val, y_val_cat),
+    epochs=20,
+    batch_size=64,
+    verbose=2
+)
+
+plot_history(history_experiment_1, title='Experiment 1 Model')
+
+val_acc_key = 'val_accuracy' if 'val_accuracy' in history_experiment_1.history else 'val_acc'
+val_acc_experiment_1 = history_experiment_1.history[val_acc_key][-1]
+print(f"Experiment 1 Final Validation Accuracy: {val_acc_experiment_1* 100:.2f}%")
+
+y_val_pred_probs = experiment_1.predict(X_val)
+y_val_pred = np.argmax(y_val_pred_probs, axis=1)
+y_val_true = np.argmax(y_val_cat, axis=1)
+cm = confusion_matrix(y_val_true, y_val_pred)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title("Confusion Matrix Experiment 1", fontsize=20)
+plt.xlabel("Predicted", fontsize=18)
+plt.ylabel("Actual", fontsize=18)
+plt.xticks(fontsize=14,rotation=45)
+plt.yticks(fontsize=14,rotation=45)
+plt.show()
+plt.tight_layout()
+
+print("Classification Report Experiment 1")
+print(classification_report(y_val_true, y_val_pred))
+
+experiment_2 = Sequential([
+    Dense(128, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(7, activation='softmax')
+])
+experiment_2.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+history_experiment_2 = experiment_2.fit(
+    X_train, y_train_cat,
+    validation_data=(X_val, y_val_cat),
+    epochs=20,
+    batch_size=64,
+    verbose=2
+)
+
+plot_history(history_experiment_2, title='Experiment 2 Model')
+
+val_acc_key = 'val_accuracy' if 'val_accuracy' in history_experiment_2.history else 'val_acc'
+val_acc_exp2 = history_experiment_2.history[val_acc_key][-1]
+print(f"Experiment 2 Final Validation Accuracy: {val_acc_exp2* 100:.2f}%")
+
+y_val_pred_probs2 = experiment_2.predict(X_val)
+y_val_pred2 = np.argmax(y_val_pred_probs2, axis=1)
+cm2 = confusion_matrix(y_val_true, y_val_pred2)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm2, annot=True, fmt='d', cmap='Blues')
+plt.title("Confusion Matrix Experiment 2", fontsize=20)
+plt.xlabel("Predicted", fontsize=18)
+plt.ylabel("Actual", fontsize=18)
+plt.xticks(fontsize=14,rotation=45)
+plt.yticks(fontsize=14,rotation=45)
+plt.show()
+plt.tight_layout()
+
+print("Classification Report Experiment 2")
+print(classification_report(y_val_true, y_val_pred2))
+
+experiment_3 = Sequential([
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    Dropout(0.3),  
+    Dense(7, activation='softmax')
+])
+experiment_3.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+history_experiment_3 = experiment_3.fit(
+    X_train, y_train_cat,
+    validation_data=(X_val, y_val_cat),
+    epochs=20,
+    batch_size=64,
+    verbose=2
+)
+
+plot_history(history_experiment_3, title='Experiment 3 Model')
+
+val_acc_key = 'val_accuracy' if 'val_accuracy' in history_experiment_3.history else 'val_acc'
+val_acc_exp3 = history_experiment_3.history[val_acc_key][-1]
+print(f"Experiment 3 Final Validation Accuracy: {val_acc_exp3* 100:.2f}%")
+
+y_val_pred_probs3 = experiment_3.predict(X_val)
+y_val_pred3 = np.argmax(y_val_pred_probs3, axis=1)
+cm3 = confusion_matrix(y_val_true, y_val_pred3)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm3, annot=True, fmt='d', cmap='Blues')
+plt.title("Confusion Matrix Experiment 3", fontsize=20)
+plt.xlabel("Predicted", fontsize=18)
+plt.ylabel("Actual", fontsize=18)
+plt.xticks(fontsize=14,rotation=45)
+plt.yticks(fontsize=14,rotation=45)
+plt.show()
+plt.tight_layout()
+
+print("Classification Report Experiment 3")
+print(classification_report(y_val_true, y_val_pred3))
+
+experiment_4 = Sequential([
+    Dense(64, activation='tanh', input_shape=(X_train.shape[1],)),
+    Dense(7, activation='softmax')
+])
+experiment_4.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+history_experiment_4 = experiment_4.fit(
+    X_train, y_train_cat,
+    validation_data=(X_val, y_val_cat),
+    epochs=20,
+    batch_size=64,
+    verbose=2
+)
+
+plot_history(history_experiment_4, title='Experiment 4 Model')
+
+val_acc_key = 'val_accuracy' if 'val_accuracy' in history_experiment_4.history else 'val_acc'
+val_acc_exp4 = history_experiment_4.history[val_acc_key][-1]
+print(f"Experiment 4 Final Validation Accuracy: {val_acc_exp4* 100:.2f}%")
+
+y_val_pred_probs4 = experiment_4.predict(X_val)
+y_val_pred4 = np.argmax(y_val_pred_probs4, axis=1)
+cm4 = confusion_matrix(y_val_true, y_val_pred4)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm4, annot=True, fmt='d', cmap='Blues')
+plt.title("Confusion Matrix Experiment 4", fontsize=20)
+plt.xlabel("Predicted", fontsize=18)
+plt.ylabel("Actual", fontsize=18)
+plt.xticks(fontsize=14,rotation=45)
+plt.yticks(fontsize=14,rotation=45)
+plt.show()
+plt.tight_layout()
+
+print("Classification Report Experiment 4")
+print(classification_report(y_val_true, y_val_pred4))
+
+experiment_5 = Sequential([
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(7, activation='softmax')
+])
+experiment_5.compile(
+    optimizer=Adam(learning_rate=0.0005),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+history_experiment_5 = experiment_5.fit(
+    X_train, y_train_cat,
+    validation_data=(X_val, y_val_cat),
+    epochs=20,
+    batch_size=64,
+    verbose=2
+)
+
+plot_history(history_experiment_5, title='Experiment 5 Model')
+
+val_acc_key = 'val_accuracy' if 'val_accuracy' in history_experiment_5.history else 'val_acc'
+val_acc_exp5 = history_experiment_5.history[val_acc_key][-1]
+print(f"Experiment 5 Final Validation Accuracy: {val_acc_exp5* 100:.2f}%")
+
+y_val_pred_probs5 = experiment_5.predict(X_val)
+y_val_pred5 = np.argmax(y_val_pred_probs5, axis=1)
+cm5 = confusion_matrix(y_val_true, y_val_pred5)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm5, annot=True, fmt='d', cmap='Blues')
+plt.title("Confusion Matrix Experiment 5", fontsize=20)
+plt.xlabel("Predicted", fontsize=18)
+plt.ylabel("Actual", fontsize=18)
+plt.xticks(fontsize=14,rotation=45)
+plt.yticks(fontsize=14,rotation=45)
+plt.show()
+plt.tight_layout()
+
+print("Classification Report Experiment 5")
+print(classification_report(y_val_true, y_val_pred5))
